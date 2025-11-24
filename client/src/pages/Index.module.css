@@ -1,0 +1,50 @@
+.taskContainer {
+    width: 100%;
+    max-width: 800px;
+    margin: 0 auto;
+}
+
+.taskList {
+    list-style: none;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.taskItem {
+    background-color: #000000;
+    padding: 1rem;
+    border-radius: 8px;
+    border: 1px solid #ffffff;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.completedTask {
+    border-color: #00ff00; /* Green for completed tasks */
+}
+
+.taskItem h2 {
+    margin: 0;
+    color: #00ff00; /* Green for highlight */
+}
+
+.taskItem p {
+    margin: 0;
+}
+
+.taskItem button {
+    align-self: flex-end;
+}
+
+@media (max-width: 768px) {
+    .taskContainer {
+        padding: 0.5rem;
+    }
+
+    .taskList {
+        gap: 0.5rem;
+    }
+}
