@@ -14,7 +14,15 @@ const port = process.env.PORT || 3000;
 
 // Middleware
 app.use(express.json());
-app.use(cors({ origin: process.env.CORS_ORIGIN || 'http://localhost:5173' })); // Use cors middleware
+const configuredOrigins = process.env.CORS_ORIGIN
+  ? process.env.CORS_ORIGIN.split(',').map(origin => origin.trim())
+  : [];
+const allowedOrigins = [
+  'http://localhost:5173',
+  'https://taskkeeper-one.vercel.app',
+  ...configuredOrigins,
+].filter(Boolean); // Filter out any empty strings
+app.use(cors({ origin: allowedOrigins }));
 app.options('*', cors()); // Handle preflight requests
 
 // API Routes
