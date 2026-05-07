@@ -15,5 +15,5 @@ COPY . .
 # Expose the port (Cloud Run uses the PORT env var, defaults to 8080)
 EXPOSE 8080
 
-# Start the application
-CMD ["npm", "start"]
+# Start the application directly with node
+CMD ["node", "src/index.js"]

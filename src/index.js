@@ -1,4 +1,23 @@
-import 'dotenv/config'; // Load environment variables from .env file
+import 'dotenv/config';
+
+// Global error handling for debugging Cloud Run startup
+process.on('uncaughtException', (err) => {
+  console.error('>>> FATAL: UNCAUGHT EXCEPTION');
+  console.error(err.name, err.message);
+  console.error(err.stack);
+  process.exit(1);
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('>>> FATAL: UNHANDLED REJECTION at:', promise, 'reason:', reason);
+  process.exit(1);
+});
+
+console.log(">>> Checking Environment Variables...");
+const requiredVars = ['SUPABASE_URL', 'SUPABASE_ANON_KEY', 'GEMINI_API_KEY', 'GROQ_API_KEY'];
+requiredVars.forEach(v => {
+  console.log(`>>> ${v}: ${process.env[v] ? 'LOADED' : 'MISSING'}`);
+});
 
 import express from 'express';
 import cors from 'cors'; // Import cors
