@@ -12,8 +12,8 @@ RUN npm install --omit=dev
 # Copy the rest of the application code
 COPY . .
 
-# Expose the port (Cloud Run uses the PORT env var)
-EXPOSE 3000
+# Expose the port (Cloud Run uses the PORT env var, defaults to 8080)
+EXPOSE 8080
 
 # Start the application
 CMD ["npm", "start"]

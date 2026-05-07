@@ -47,8 +47,10 @@ app.get('/api/protected', protect, (req, res) => {
 });
 
 
-app.listen(port, () => {
-  console.log(`Server is running on port ${port}`);
+app.listen(port, '0.0.0.0', () => {
+  console.log(`>>> Task Keeper API is live!`);
+  console.log(`>>> Listening on port: ${port}`);
+  console.log(`>>> Environment: ${process.env.NODE_ENV || 'development'}`);
 });
 
 export default app;
