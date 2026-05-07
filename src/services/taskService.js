@@ -1,9 +1,9 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { z } from "zod";
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY, { apiVersion: 'v1' });
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 // We'll use the v1 model explicitly
-const MODEL_NAME = "gemini-1.5-flash";
+const MODEL_NAME = "gemini-2.0-flash-lite";
 
 // Zod schema for validation after receiving the response
 const taskSchema = z.object({
@@ -23,7 +23,7 @@ const googleApiSchema = {
 
 export const createTaskFromText = async (text) => {
     // Using the stable model identifier
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+    const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash-lite" });
     
     const generationConfig = {
         responseMimeType: "application/json",
