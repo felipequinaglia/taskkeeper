@@ -1,5 +1,5 @@
-# Use lightweight Node.js image
-FROM node:20-alpine
+# Use Node.js 22 (has native WebSocket support for Supabase)
+FROM node:22-alpine
 
 # Set working directory
 WORKDIR /app
