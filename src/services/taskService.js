@@ -2,6 +2,8 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
 import { z } from "zod";
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+// We'll use the v1 model explicitly
+const MODEL_NAME = "gemini-1.5-flash";
 
 // Zod schema for validation after receiving the response
 const taskSchema = z.object({
@@ -20,20 +22,23 @@ const googleApiSchema = {
 };
 
 export const createTaskFromText = async (text) => {
-    const model = genAI.getGenerativeModel({
-        model: "gemini-1.5-flash",
-        generationConfig: {
-            responseMimeType: "application/json",
-            responseSchema: googleApiSchema, // Use the simple, manual schema
-        },
-    });
+    // Using the stable model identifier
+    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+    
+    const generationConfig = {
+        responseMimeType: "application/json",
+        responseSchema: googleApiSchema,
+    };
 
     const prompt = `
         Extract the title and description of a task from the following message:
         "${text}"
     `;
 
-    const result = await model.generateContent(prompt);
+    const result = await model.generateContent({
+      contents: [{ role: 'user', parts: [{ text: prompt }] }],
+      generationConfig,
+    });
     const response = await result.response;
     const taskData = response.text();
     
