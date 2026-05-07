@@ -1,12 +1,13 @@
-import db from '../db.js';
+import { getSupabase } from '../supabaseClient.js';
 import { saveTaskToDb } from '../services/taskService.js';
 
 export const createTask = async (req, res) => {
   try {
     const { title, description } = req.body;
-    const userId = req.user.id; // Assuming user information is available in req.user from authentication middleware
+    const userId = req.user.id;
+    const supabase = getSupabase(req.token);
 
-    const newTask = await saveTaskToDb(userId, title, description);
+    const newTask = await saveTaskToDb(supabase, userId, title, description);
 
     res.status(201).json({
       status: 'success',
@@ -24,15 +25,20 @@ export const createTask = async (req, res) => {
 
 export const getAllTasks = async (req, res) => {
   try {
-    const userId = req.user.id; // Assuming user information is available in req.user from authentication middleware
+    const supabase = getSupabase(req.token);
 
-    const tasks = await db.query('SELECT * FROM tasks WHERE user_id = $1 ORDER BY created_at DESC', [userId]);
+    const { data: tasks, error } = await supabase
+      .from('tasks')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
 
     res.status(200).json({
       status: 'success',
-      results: tasks.rows.length,
+      results: tasks.length,
       data: {
-        tasks: tasks.rows,
+        tasks,
       },
     });
   } catch (error) {
@@ -46,11 +52,15 @@ export const getAllTasks = async (req, res) => {
 export const getTask = async (req, res) => {
   try {
     const { id } = req.params;
-    const userId = req.user.id; // Assuming user information is available in req.user from authentication middleware
+    const supabase = getSupabase(req.token);
 
-    const task = await db.query('SELECT * FROM tasks WHERE id = $1 AND user_id = $2', [id, userId]);
+    const { data: task, error } = await supabase
+      .from('tasks')
+      .select('*')
+      .eq('id', id)
+      .single();
 
-    if (!task.rows.length) {
+    if (error || !task) {
       return res.status(404).json({
         status: 'fail',
         message: 'No task found with that ID',
@@ -60,7 +70,7 @@ export const getTask = async (req, res) => {
     res.status(200).json({
       status: 'success',
       data: {
-        task: task.rows[0],
+        task,
       },
     });
   } catch (error) {
@@ -75,14 +85,16 @@ export const updateTask = async (req, res) => {
   try {
     const { id } = req.params;
     const { title, description, completed } = req.body;
-    const userId = req.user.id; // Assuming user information is available in req.user from authentication middleware
+    const supabase = getSupabase(req.token);
 
-    const updatedTask = await db.query(
-      'UPDATE tasks SET title = $1, description = $2, completed = $3 WHERE id = $4 AND user_id = $5 RETURNING *',
-      [title, description, completed, id, userId]
-    );
+    const { data: updatedTask, error } = await supabase
+      .from('tasks')
+      .update({ title, description, completed })
+      .eq('id', id)
+      .select()
+      .single();
 
-    if (!updatedTask.rows.length) {
+    if (error || !updatedTask) {
       return res.status(404).json({
         status: 'fail',
         message: 'No task found with that ID',
@@ -92,7 +104,7 @@ export const updateTask = async (req, res) => {
     res.status(200).json({
       status: 'success',
       data: {
-        task: updatedTask.rows[0],
+        task: updatedTask,
       },
     });
   } catch (error) {
@@ -106,11 +118,14 @@ export const updateTask = async (req, res) => {
 export const deleteTask = async (req, res) => {
   try {
     const { id } = req.params;
-    const userId = req.user.id; // Assuming user information is available in req.user from authentication middleware
+    const supabase = getSupabase(req.token);
 
-    const deletedTask = await db.query('DELETE FROM tasks WHERE id = $1 AND user_id = $2 RETURNING *', [id, userId]);
+    const { error, count } = await supabase
+      .from('tasks')
+      .delete({ count: 'exact' })
+      .eq('id', id);
 
-    if (!deletedTask.rows.length) {
+    if (error || count === 0) {
       return res.status(404).json({
         status: 'fail',
         message: 'No task found with that ID',

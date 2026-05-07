@@ -1,4 +1,3 @@
-import db from '../db.js';
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { z } from "zod";
 
@@ -22,7 +21,7 @@ const googleApiSchema = {
 
 export const createTaskFromText = async (text) => {
     const model = genAI.getGenerativeModel({
-        model: "gemini-2.5-flash",
+        model: "gemini-1.5-flash",
         generationConfig: {
             responseMimeType: "application/json",
             responseSchema: googleApiSchema, // Use the simple, manual schema
@@ -44,10 +43,12 @@ export const createTaskFromText = async (text) => {
     return task;
 };
 
-export const saveTaskToDb = async (userId, title, description) => {
-  const newTask = await db.query(
-    'INSERT INTO tasks (user_id, title, description) VALUES ($1, $2, $3) RETURNING *',
-    [userId, title, description]
-  );
-  return newTask.rows[0];
+export const saveTaskToDb = async (supabase, userId, title, description) => {
+  const { data, error } = await supabase
+    .from('tasks')
+    .insert([{ user_id: userId, title, description }])
+    .select();
+
+  if (error) throw error;
+  return data[0];
 };

@@ -1,6 +1,4 @@
-import jwt from 'jsonwebtoken';
-import { promisify } from 'util';
-import db from '../db.js';
+import { supabase } from '../supabaseClient.js';
 
 export const protect = async (req, res, next) => {
   try {
@@ -20,27 +18,26 @@ export const protect = async (req, res, next) => {
       });
     }
 
-    // 2) Verification token
-    const decoded = await promisify(jwt.verify)(token, process.env.JWT_SECRET || 'a-very-secret-key');
+    // 2) Verification token & Check if user still exists
+    // Supabase's getUser verifies the JWT and returns the user data
+    const { data: { user }, error } = await supabase.auth.getUser(token);
 
-    // 3) Check if user still exists
-    const userResult = await db.query('SELECT * FROM users WHERE id = $1', [decoded.id]);
-    const currentUser = userResult.rows[0];
-    
-    if (!currentUser) {
+    if (error || !user) {
       return res.status(401).json({
         status: 'fail',
-        message: 'The user belonging to this token does no longer exist.',
+        message: 'Invalid token or user does no longer exist.',
       });
     }
 
     // GRANT ACCESS TO PROTECTED ROUTE
-    req.user = currentUser;
+    // We attach the user and the token to the request object. 
+    req.user = user;
+    req.token = token;
     next();
   } catch (error) {
     res.status(401).json({
       status: 'fail',
-      message: 'Invalid token. Please log in again.',
+      message: 'Authentication failed.',
     });
   }
 };

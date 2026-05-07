@@ -18,7 +18,7 @@ const configuredOrigins = process.env.CORS_ORIGIN
   ? process.env.CORS_ORIGIN.split(',').map(origin => origin.trim())
   : [];
 const allowedOrigins = [
-  'http://localhost:5173',
+  'http://localhost',
   'https://taskkeeper-one.vercel.app',
   ...configuredOrigins,
 ].filter(Boolean); // Filter out any empty strings
