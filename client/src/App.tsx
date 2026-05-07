@@ -1,6 +1,7 @@
 /**
- * TaskKeeper v1.1.0
+ * TaskKeeper v1.1.1
  * Architecture: Supabase + Groq + Cloud Run
+ * CI/CD: Vercel + Cloud Build
  */
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
