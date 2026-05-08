@@ -4,3 +4,4 @@ taskkeeper-*.json
 .gemini/
 *.md
 *.sql
+/src/generated/prisma
