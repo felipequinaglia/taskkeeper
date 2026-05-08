@@ -17,9 +17,7 @@ export const getMessages = async (req, res) => {
       status: 'success',
       results: messages.length,
       total: count,
-      data: {
-        messages: messages.reverse(), // Reverse to show in chronological order on the UI
-      },
+      messages: messages.reverse(), // Reverse to show in chronological order on the UI
     });
   } catch (error) {
     res.status(400).json({

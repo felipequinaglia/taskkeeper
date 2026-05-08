@@ -100,7 +100,17 @@ export const processInput = async (req, res) => {
             content: reply || `I have created the task: "${newTask.title}"`
         });
 
-        res.status(200).json({ reply: reply || `I have created the task: "${newTask.title}"` });
+        // Helper to get public URL
+        const supabaseUrl = process.env.SUPABASE_URL;
+        const publicAudioUrl = audioPath 
+            ? `${supabaseUrl}/storage/v1/object/public/audio-notes/${audioPath}`
+            : null;
+
+        res.status(200).json({ 
+            reply: reply || `I have created the task: "${newTask.title}"`,
+            transcription: transcription,
+            audio_url: publicAudioUrl
+        });
     } catch (error) {
         console.error("Error processing input in processInputController:", error);
         
