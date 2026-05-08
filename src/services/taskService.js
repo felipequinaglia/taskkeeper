@@ -9,6 +9,7 @@ const MODEL_NAME = "gemini-2.5-flash";
 const taskSchema = z.object({
   title: z.string(),
   description: z.string(),
+  reply: z.string(),
 });
 
 // Manually create a simple schema for the Google API
@@ -17,8 +18,9 @@ const googleApiSchema = {
   properties: {
     title: { type: "STRING" },
     description: { type: "STRING" },
+    reply: { type: "STRING", description: "A very short, natural confirmation message in the same language as the user's input." },
   },
-  required: ["title", "description"],
+  required: ["title", "description", "reply"],
 };
 
 export const createTaskFromText = async (text) => {
@@ -31,8 +33,12 @@ export const createTaskFromText = async (text) => {
     };
 
     const prompt = `
-        Extract the title and description of a task from the following message:
-        "${text}"
+        Extract the title and description of a task from the following message.
+        Also, generate a very short, friendly confirmation message (reply) to the user.
+        
+        IMPORTANT: Everything (title, description, and reply) MUST be in the same language as the message below.
+        
+        Message: "${text}"
     `;
 
     const result = await model.generateContent({

@@ -28,8 +28,9 @@ export const processInput = async (req, res) => {
             const transcriptionResponse = await groq.audio.transcriptions.create({
                 file: await import('fs').then(fs => fs.createReadStream(tempFilePath)),
                 model: 'whisper-large-v3',
-                language: 'pt', // Force Portuguese for better accuracy
+                // Removed hardcoded 'pt' to allow auto-detection for any language
                 response_format: 'json',
+                prompt: "Transcribe the following task exactly as spoken, maintaining proper capitalization and punctuation.", // General quality prompt
             });
 
             transcription = transcriptionResponse.text;
@@ -52,7 +53,7 @@ export const processInput = async (req, res) => {
         }
 
         console.log("Attempting to create task from transcription.");
-        const { title, description } = await createTaskFromText(transcription);
+        const { title, description, reply } = await createTaskFromText(transcription);
         console.log("Task created from text:", { title, description });
 
         console.log("Attempting to save task to database.");
@@ -60,7 +61,7 @@ export const processInput = async (req, res) => {
         const newTask = await saveTaskToDb(supabase, userId, title, description);
         console.log("Task saved to database:", newTask);
 
-        res.status(200).json({ reply: `I have created the task: "${newTask.title}"` });
+        res.status(200).json({ reply: reply || `I have created the task: "${newTask.title}"` });
     } catch (error) {
         console.error("Error processing input in processInputController:", error);
         
