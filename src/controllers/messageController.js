@@ -13,11 +13,20 @@ export const getMessages = async (req, res) => {
 
     if (error) throw error;
 
+    // Helper to get public URL
+    const supabaseUrl = process.env.SUPABASE_URL;
+    const messagesWithUrls = messages.map(msg => ({
+      ...msg,
+      audio_url: msg.audio_path 
+        ? `${supabaseUrl}/storage/v1/object/public/audio-notes/${msg.audio_path}`
+        : null
+    }));
+
     res.status(200).json({
       status: 'success',
       results: messages.length,
       total: count,
-      messages: messages.reverse(), // Reverse to show in chronological order on the UI
+      messages: messagesWithUrls.reverse(), // Reverse to show in chronological order on the UI
     });
   } catch (error) {
     res.status(400).json({
