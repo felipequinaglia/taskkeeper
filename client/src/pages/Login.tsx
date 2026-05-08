@@ -1,113 +1,100 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Loader2 } from 'lucide-react';
 import api from '@/lib/api';
 
 const Login = () => {
-  const [email, setEmail] = useState('');
+  const [email,    setEmail]    = useState('');
   const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
-  const [loading, setLoading] = useState(false);
+  const [error,    setError]    = useState('');
+  const [loading,  setLoading]  = useState(false);
   const navigate = useNavigate();
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
     setError('');
     setLoading(true);
-
     try {
-      const response = await api.post('/api/users/login', {
-        email,
-        password,
-      });
+      const response = await api.post('/api/users/login', { email, password });
       localStorage.setItem('token', response.data.token);
       navigate('/chat');
-    } catch (error: any) {
-      setError(error.response?.data?.message || 'Login failed. Please try again.');
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'Login failed. Please try again.');
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-black p-4">
-      <div className="w-full max-w-md border-2 border-white p-8">
-        <div className="mb-8">
-          <pre className="text-primary text-sm mb-4">
-{`╔════════════════════════════════╗
-║       TASK KEEPER v1.0         ║
-╚════════════════════════════════╝`}
-          </pre>
-          <p className="text-white text-center text-sm">&gt; LOGIN PROTOCOL INITIATED</p>
-        </div>
+    <div className="tk-auth-page">
+      <div box-="square" style={{ width: '52ch', padding: '2lh 2ch' }}>
 
-        <form onSubmit={handleSubmit} className="space-y-6">
+        <pre className="tk-accent" style={{ fontSize: '0.75rem', lineHeight: 1.2, marginBottom: '1lh' }}>
+{`╔════════════════════════════════════╗
+║        TASK KEEPER  v2.0           ║
+╚════════════════════════════════════╝`}
+        </pre>
+
+        <p style={{ marginBottom: '2lh' }}>&gt; LOGIN PROTOCOL INITIATED</p>
+
+        <form onSubmit={handleSubmit} className="tk-form-stack">
+
           {error && (
-            <div className="border border-destructive p-3">
-              <p className="text-destructive text-sm">[ERROR] {error}</p>
+            <div className="tk-banner error">
+              [ERROR] {error}
             </div>
           )}
 
-          <div className="space-y-2">
-            <Label htmlFor="email" className="text-white text-sm">&gt; EMAIL:</Label>
-            <Input
+          <div className="tk-form-group">
+            <label className="tk-form-label" htmlFor="email">&gt; EMAIL:</label>
+            <input
               id="email"
               type="email"
-              placeholder="user@domain.com"
               value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              onChange={e => setEmail(e.target.value)}
+              placeholder="user@domain.com"
               required
               disabled={loading}
-              className="bg-black text-white border-white focus:border-primary rounded-none"
+              className="tk-full"
             />
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="password" className="text-white text-sm">&gt; PASSWORD:</Label>
-            <Input
+          <div className="tk-form-group">
+            <label className="tk-form-label" htmlFor="password">&gt; PASSWORD:</label>
+            <input
               id="password"
               type="password"
-              placeholder="••••••••"
               value={password}
-              onChange={(e) => setPassword(e.target.value)}
+              onChange={e => setPassword(e.target.value)}
+              placeholder="••••••••"
               required
               disabled={loading}
-              className="bg-black text-white border-white focus:border-primary rounded-none"
+              className="tk-full"
             />
           </div>
 
-          <div className="space-y-4">
-            <Button 
-              type="submit" 
-              className="w-full bg-primary text-black hover:bg-primary/80 border-2 border-primary rounded-none font-bold"
-              disabled={loading}
-            >
-              {loading ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  [AUTHENTICATING...]
-                </>
-              ) : (
-                '[ ENTER SYSTEM ]'
-              )}
-            </Button>
+          <button
+            type="submit"
+            variant-="accent"
+            disabled={loading}
+            className="tk-full"
+          >
+            {loading
+              ? <><span is-="spinner" /> &nbsp;[AUTHENTICATING...]</>
+              : '[ ENTER SYSTEM ]'}
+          </button>
 
-            <div className="text-center">
-              <p className="text-muted-foreground text-sm">
-                &gt; NEW USER? <Link to="/register" className="text-primary hover:underline">[REGISTER]</Link>
-              </p>
-            </div>
-          </div>
+          <p className="tk-dim" style={{ textAlign: 'center' }}>
+            &gt; NEW USER?&nbsp;
+            <Link to="/register" className="tk-accent">[REGISTER]</Link>
+          </p>
+
         </form>
 
-        <div className="mt-8 pt-4 border-t border-white">
-          <p className="text-muted-foreground text-xs text-center">
-            SYSTEM STATUS: ONLINE | VERSION: 1.0
-          </p>
-        </div>
+        <div is-="separator" className="tk-full" style={{ marginTop: '1lh' }} />
+        <p className="tk-dim" style={{ marginTop: '0.5lh', fontSize: '0.85rem' }}>
+          SYSTEM STATUS: ONLINE &nbsp;|&nbsp; VERSION: 2.0
+        </p>
+
       </div>
     </div>
   );

@@ -1,218 +1,319 @@
-import { useState, useRef, useEffect } from 'react';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { Loader2 } from 'lucide-react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { useTasks } from '@/contexts/TaskContext';
-import { useToast } from '@/hooks/use-toast';
 import api from '@/lib/api';
 
 interface Message {
-  sender: 'user' | 'bot';
+  id?: string;
+  sender: 'user' | 'keeper';
   text: string;
+  audio_url?: string | null;
 }
 
-const Chat = () => {
-  const [message, setMessage] = useState('');
-  const [chatHistory, setChatHistory] = useState<Message[]>([]);
-  const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [isRecording, setIsRecording] = useState(false);
-  const mediaRecorder = useRef<MediaRecorder | null>(null);
-  const audioChunks = useRef<Blob[]>([]);
-  const scrollRef = useRef<HTMLDivElement>(null);
-  const { fetchTasks } = useTasks();
-  const { toast } = useToast();
+/* ── Audio Player ─────────────────────────────────────────── */
+const AudioPlayer = ({ url }: { url: string }) => {
+  const audioRef = useRef<HTMLAudioElement>(null);
+  const [playing, setPlaying] = useState(false);
 
+  const toggle = () => {
+    if (!audioRef.current) return;
+    if (playing) {
+      audioRef.current.pause();
+      audioRef.current.currentTime = 0;
+      setPlaying(false);
+    } else {
+      audioRef.current.play();
+      setPlaying(true);
+    }
+  };
+
+  return (
+    <div style={{ marginTop: '0.3lh' }}>
+      <audio ref={audioRef} src={url} onEnded={() => setPlaying(false)} />
+      <button
+        size-="small"
+        variant-={playing ? 'danger' : 'foreground2'}
+        onClick={toggle}
+      >
+        {playing ? '[■ STOP]' : '[▶ PLAY NOTE]'}
+      </button>
+    </div>
+  );
+};
+
+/* ── Chat Page ────────────────────────────────────────────── */
+const HISTORY_LIMIT = 20;
+
+const Chat = () => {
+  const [message,        setMessage]        = useState('');
+  const [chatHistory,    setChatHistory]    = useState<Message[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(true);
+  const [hasMore,        setHasMore]        = useState(false);
+  const [offset,         setOffset]         = useState(0);
+  const [loadingMore,    setLoadingMore]    = useState(false);
+  const [error,          setError]          = useState<string | null>(null);
+  const [loading,        setLoading]        = useState(false);
+  const [isRecording,    setIsRecording]    = useState(false);
+
+  const mediaRecorder        = useRef<MediaRecorder | null>(null);
+  const audioChunks          = useRef<Blob[]>([]);
+  const messagesEndRef       = useRef<HTMLDivElement>(null);
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
+  const prevScrollHeight     = useRef(0);
+  const isPrepending         = useRef(false);
+
+  const { fetchTasks } = useTasks();
+
+  /* ── History fetch ──────────────────────────────────────── */
+  const loadHistory = useCallback(async (off: number, initial: boolean) => {
+    try {
+      const token = localStorage.getItem('token');
+      const res = await api.get('/api/messages', {
+        params: { limit: HISTORY_LIMIT, offset: off },
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      const msgs: Message[] = res.data.messages ?? [];
+      // Backend returns newest-first; reverse for chronological display
+      const ordered = [...msgs].reverse();
+
+      if (initial) {
+        setChatHistory(ordered);
+        setOffset(msgs.length);
+      } else {
+        // Save scroll height before prepend so we can restore it after render
+        prevScrollHeight.current = messagesContainerRef.current?.scrollHeight ?? 0;
+        isPrepending.current = true;
+        setChatHistory(prev => [...ordered, ...prev]);
+        setOffset(prev => prev + msgs.length);
+      }
+
+      setHasMore(msgs.length === HISTORY_LIMIT);
+    } catch {
+      // History is non-critical; silently skip
+    } finally {
+      setHistoryLoading(false);
+      setLoadingMore(false);
+    }
+  }, []);
+
+  useEffect(() => { loadHistory(0, true); }, [loadHistory]);
+
+  /* ── Scroll management ──────────────────────────────────── */
   useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    if (isPrepending.current && messagesContainerRef.current) {
+      // After prepend: restore position so the view doesn't jump to top
+      const newHeight = messagesContainerRef.current.scrollHeight;
+      messagesContainerRef.current.scrollTop = newHeight - prevScrollHeight.current;
+      isPrepending.current = false;
+    } else {
+      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     }
   }, [chatHistory, loading]);
 
-  const handleSendMessage = async (event: React.FormEvent) => {
-    event.preventDefault();
+  /* ── Send text ──────────────────────────────────────────── */
+  const handleSendMessage = async (e: React.FormEvent) => {
+    e.preventDefault();
     if (!message.trim() || loading) return;
-    sendMessage(message);
-  };
-
-  const sendMessage = async (text: string) => {
-    const userMessage: Message = { sender: 'user', text };
-    const newChatHistory = [...chatHistory, userMessage];
-    setChatHistory(newChatHistory);
+    const text = message;
+    setChatHistory(prev => [...prev, { sender: 'user', text }]);
     setMessage('');
     setLoading(true);
     setError(null);
-
     try {
       const token = localStorage.getItem('token');
-      const response = await api.post(
+      const res = await api.post(
         '/api/chat',
         { message: text },
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
+        { headers: { Authorization: `Bearer ${token}` } }
       );
-      setChatHistory([...newChatHistory, { sender: 'bot', text: response.data.reply }]);
+      setChatHistory(prev => [...prev, { sender: 'keeper', text: res.data.reply }]);
       fetchTasks();
     } catch (err: any) {
-      const errorMsg = err.response?.data?.error || 'Failed to send message.';
-      setError(errorMsg);
-      toast({
-        variant: 'destructive',
-        title: '[ERROR]',
-        description: errorMsg,
-      });
+      setError(err.response?.data?.error || 'Failed to send message.');
     } finally {
       setLoading(false);
     }
   };
 
+  /* ── Recording ──────────────────────────────────────────── */
   const startRecording = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       mediaRecorder.current = new MediaRecorder(stream);
-      mediaRecorder.current.ondataavailable = (event) => {
-        audioChunks.current.push(event.data);
-      };
+      mediaRecorder.current.ondataavailable = e => audioChunks.current.push(e.data);
       mediaRecorder.current.onstop = async () => {
-        const audioBlob = new Blob(audioChunks.current, { type: 'audio/webm' });
+        const blob   = new Blob(audioChunks.current, { type: 'audio/webm' });
         const reader = new FileReader();
-        reader.readAsDataURL(audioBlob);
-        reader.onloadend = async () => {
-          const base64Audio = reader.result?.toString().split(',')[1];
-          if (base64Audio) {
-            sendAudio(base64Audio);
-          }
+        reader.readAsDataURL(blob);
+        reader.onloadend = () => {
+          const base64 = reader.result?.toString().split(',')[1];
+          if (base64) sendAudio(base64);
         };
         audioChunks.current = [];
       };
       mediaRecorder.current.start();
       setIsRecording(true);
-    } catch (err) {
-      toast({
-        variant: 'destructive',
-        title: '[ERROR]',
-        description: 'Failed to access microphone. Please check permissions.',
-      });
+    } catch {
+      setError('Failed to access microphone. Please check permissions.');
     }
   };
 
   const stopRecording = () => {
     if (mediaRecorder.current) {
       mediaRecorder.current.stop();
-      mediaRecorder.current.stream.getTracks().forEach(track => track.stop());
+      mediaRecorder.current.stream.getTracks().forEach(t => t.stop());
       setIsRecording(false);
     }
   };
 
+  /* ── Send audio ─────────────────────────────────────────── */
   const sendAudio = async (audio: string) => {
     setLoading(true);
     setError(null);
     try {
       const token = localStorage.getItem('token');
-      const response = await api.post(
+      const res = await api.post(
         '/api/process-input',
         { audio },
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
+        { headers: { Authorization: `Bearer ${token}` } }
       );
-      setChatHistory([...chatHistory, { sender: 'bot', text: response.data.reply }]);
+
+      // Show the user's transcribed voice note (with playback if URL returned)
+      const userText = res.data.transcription ?? '(voice note)';
+      setChatHistory(prev => [
+        ...prev,
+        { sender: 'user', text: userText, audio_url: res.data.audio_url ?? null },
+      ]);
+
+      // Then the keeper's reply
+      setChatHistory(prev => [...prev, { sender: 'keeper', text: res.data.reply }]);
       fetchTasks();
     } catch (err: any) {
-      const errorMsg = err.response?.data?.error || 'Failed to send audio.';
-      setError(errorMsg);
-      toast({
-        variant: 'destructive',
-        title: '[ERROR]',
-        description: errorMsg,
-      });
+      setError(err.response?.data?.error || 'Failed to send audio.');
     } finally {
       setLoading(false);
     }
   };
 
+  /* ── Load more ──────────────────────────────────────────── */
+  const handleLoadMore = () => {
+    if (loadingMore || !hasMore) return;
+    setLoadingMore(true);
+    loadHistory(offset, false);
+  };
+
+  /* ── Render ─────────────────────────────────────────────── */
   return (
-    <div className="container mx-auto p-4 max-w-4xl">
-      <div className="border-2 border-white bg-black h-[calc(100vh-12rem)]">
-        <div className="border-b-2 border-white p-4">
-          <pre className="text-primary text-xs leading-tight">
-{`╔════════════════════════════════════════╗
-║  KEEPER AI INTERFACE - CHAT PROTOCOL   ║
-╚════════════════════════════════════════╝`}
-          </pre>
-          <p className="text-muted-foreground text-xs mt-2">
-            &gt; TYPE OR USE VOICE INPUT TO CREATE TASKS
-          </p>
-        </div>
+    <div className="tk-chat-wrap">
 
-        <ScrollArea className="h-[calc(100%-220px)] p-4" ref={scrollRef}>
-          <div className="space-y-4 font-mono">
-            {chatHistory.length === 0 && (
-              <div className="text-center text-muted-foreground py-12">
-                <p className="text-sm mb-2">[SYSTEM READY]</p>
-                <p className="text-xs">AWAITING INPUT...</p>
-              </div>
-            )}
-            {chatHistory.map((chat, index) => (
-              <div key={index} className="space-y-1">
-                <p className={`text-xs ${chat.sender === 'user' ? 'text-accent' : 'text-primary'}`}>
-                  {chat.sender === 'user' ? '&gt; USER:' : '&gt; KEEPER:'}
-                </p>
-                <div className={`border ${chat.sender === 'user' ? 'border-accent' : 'border-primary'} p-3`}>
-                  <p className="text-sm text-white whitespace-pre-wrap">{chat.text}</p>
-                </div>
-              </div>
-            ))}
-            {loading && (
-              <div className="space-y-1">
-                <p className="text-xs text-primary">&gt; KEEPER:</p>
-                <div className="border border-primary p-3 flex items-center gap-2">
-                  <Loader2 className="h-4 w-4 animate-spin text-primary" />
-                  <p className="text-sm text-white">[PROCESSING...]</p>
-                </div>
-              </div>
-            )}
-          </div>
-        </ScrollArea>
+      {/* Header */}
+      <div style={{ padding: '0.5lh 1ch', borderBottom: '2px solid var(--box-border-color)' }}>
+        <pre className="tk-accent" style={{ fontSize: '0.7rem', lineHeight: 1.2 }}>
+{`╔══════════════════════════════════════════╗
+║   KEEPER AI INTERFACE — CHAT PROTOCOL    ║
+╚══════════════════════════════════════════╝`}
+        </pre>
+        <p className="tk-dim">&gt; TYPE OR USE VOICE INPUT TO CREATE TASKS</p>
+      </div>
 
-        <div className="border-t-2 border-white p-4 space-y-3">
-          {error && (
-            <div className="border border-destructive p-2">
-              <p className="text-destructive text-xs">[ERROR] {error}</p>
-            </div>
-          )}
-          <form onSubmit={handleSendMessage} className="flex gap-2">
-            <Input
-              type="text"
-              value={message}
-              onChange={(e) => setMessage(e.target.value)}
-              placeholder="&gt; Enter command..."
-              disabled={loading || isRecording}
-              className="flex-1 bg-black text-white border-white focus:border-primary rounded-none"
-            />
-            <Button 
-              type="submit" 
-              disabled={loading || isRecording || !message.trim()}
-              className="bg-primary text-black hover:bg-primary/80 border-2 border-primary rounded-none font-bold"
+      {/* Messages */}
+      <div className="tk-chat-messages" ref={messagesContainerRef}>
+
+        {/* Load older */}
+        {hasMore && (
+          <div style={{ textAlign: 'center', marginBottom: '0.5lh' }}>
+            <button
+              size-="small"
+              variant-="foreground2"
+              onClick={handleLoadMore}
+              disabled={loadingMore}
             >
-              [ SEND ]
-            </Button>
-          </form>
-          <Button
-            onClick={isRecording ? stopRecording : startRecording}
-            variant={isRecording ? 'destructive' : 'secondary'}
-            className="w-full border-2 rounded-none font-bold"
-            disabled={loading}
+              {loadingMore
+                ? <><span is-="spinner" />&nbsp;[LOADING...]</>
+                : '[▲ LOAD OLDER MESSAGES]'}
+            </button>
+          </div>
+        )}
+
+        {/* Initial history loading indicator */}
+        {historyLoading && (
+          <div className="tk-empty">
+            <span is-="spinner" />&nbsp;<span className="tk-dim">[LOADING HISTORY...]</span>
+          </div>
+        )}
+
+        {/* Empty state */}
+        {!historyLoading && chatHistory.length === 0 && (
+          <div className="tk-empty">
+            <p>[SYSTEM READY]</p>
+            <p className="tk-dim">AWAITING INPUT...</p>
+          </div>
+        )}
+
+        {/* Message list */}
+        {chatHistory.map((msg, i) => (
+          <div key={msg.id ?? i} className="tk-msg">
+            <p className={`tk-msg-sender ${msg.sender === 'keeper' ? 'tk-accent' : ''}`}>
+              &gt; {msg.sender === 'user' ? 'USER:' : 'KEEPER:'}
+            </p>
+            <div className={`tk-msg-body ${msg.sender}`}>
+              {msg.text}
+              {msg.audio_url && <AudioPlayer url={msg.audio_url} />}
+            </div>
+          </div>
+        ))}
+
+        {/* Typing indicator */}
+        {loading && (
+          <div className="tk-msg">
+            <p className="tk-msg-sender tk-accent">&gt; KEEPER:</p>
+            <div className="tk-msg-body keeper tk-dim">
+              <span is-="spinner" />&nbsp;[PROCESSING...]
+            </div>
+          </div>
+        )}
+
+        <div ref={messagesEndRef} />
+      </div>
+
+      {/* Input area */}
+      <div className="tk-chat-input-area">
+
+        {error && (
+          <div className="tk-banner error">
+            [ERROR] {error}
+          </div>
+        )}
+
+        <form onSubmit={handleSendMessage} className="tk-row">
+          <input
+            type="text"
+            value={message}
+            onChange={e => setMessage(e.target.value)}
+            placeholder="> Enter command..."
+            disabled={loading || isRecording}
+            style={{ flex: 1 }}
+          />
+          <button
+            type="submit"
+            size-="small"
+            variant-="accent"
+            disabled={loading || isRecording || !message.trim()}
           >
-            {isRecording ? '[ ● RECORDING... CLICK TO STOP ]' : '[ ○ VOICE INPUT ]'}
-          </Button>
-        </div>
+            [SEND]
+          </button>
+        </form>
+
+        <button
+          size-="small"
+          variant-={isRecording ? 'danger' : 'foreground0'}
+          onClick={isRecording ? stopRecording : startRecording}
+          disabled={loading}
+          className="tk-full"
+        >
+          {isRecording ? '[ ● RECORDING... CLICK TO STOP ]' : '[ ○ VOICE INPUT ]'}
+        </button>
+
       </div>
     </div>
   );
