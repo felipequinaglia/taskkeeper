@@ -1,9 +1,10 @@
-import { NavLink } from '@/components/NavLink';
-import { Button } from '@/components/ui/button';
+import { NavLink } from 'react-router-dom';
 import { useNavigate } from 'react-router-dom';
+import { useTheme } from '@/contexts/ThemeContext';
 
 const Header = () => {
   const navigate = useNavigate();
+  const { theme, toggleTheme } = useTheme();
 
   const handleLogout = () => {
     localStorage.removeItem('token');
@@ -11,42 +12,38 @@ const Header = () => {
   };
 
   return (
-    <header className="border-b-2 border-white bg-black">
-      <div className="container mx-auto px-4 py-4">
-        <div className="flex items-center justify-between">
-          <div>
-            <pre className="text-primary text-xs leading-none">
+    <header className="tk-header">
+      <pre className="tk-accent" style={{ fontSize: '0.7rem', lineHeight: 1.2 }}>
 {`╔═══════════════╗
-║ TASK KEEPER   ║
+║  TASK KEEPER  ║
 ╚═══════════════╝`}
-            </pre>
-          </div>
-          <nav className="flex items-center gap-4">
-            <NavLink
-              to="/chat"
-              className="px-4 py-2 border border-white text-white hover:bg-white hover:text-black transition-colors"
-              activeClassName="bg-primary text-black border-primary"
-            >
-              &gt; CHAT
-            </NavLink>
-            <NavLink
-              to="/tasks"
-              className="px-4 py-2 border border-white text-white hover:bg-white hover:text-black transition-colors"
-              activeClassName="bg-primary text-black border-primary"
-            >
-              &gt; TASKS
-            </NavLink>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={handleLogout}
-              className="border border-destructive text-destructive hover:bg-destructive hover:text-white rounded-none"
-            >
-              [ LOGOUT ]
-            </Button>
-          </nav>
-        </div>
-      </div>
+      </pre>
+
+      <nav className="tk-nav">
+        <NavLink to="/chat"  className={({ isActive }) => `tk-nav-link${isActive ? ' active' : ''}`}>
+          &gt; CHAT
+        </NavLink>
+        <NavLink to="/tasks" className={({ isActive }) => `tk-nav-link${isActive ? ' active' : ''}`}>
+          &gt; TASKS
+        </NavLink>
+
+        <button
+          size-="small"
+          variant-="background2"
+          onClick={toggleTheme}
+          title="Toggle theme"
+        >
+          {theme === 'dark' ? '[LIGHT]' : '[DARK]'}
+        </button>
+
+        <button
+          size-="small"
+          variant-="danger"
+          onClick={handleLogout}
+        >
+          [LOGOUT]
+        </button>
+      </nav>
     </header>
   );
 };

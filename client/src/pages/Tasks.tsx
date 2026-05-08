@@ -1,11 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useTasks } from '@/contexts/TaskContext';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
-import { Checkbox } from '@/components/ui/checkbox';
 import { useNavigate } from 'react-router-dom';
-import { useToast } from '@/hooks/use-toast';
 import api from '@/lib/api';
 
 interface Task {
@@ -18,239 +13,223 @@ interface Task {
 
 const Tasks = () => {
   const { tasks, fetchTasks } = useTasks();
-  const [error, setError] = useState<string | null>(null);
-  const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
-  const [updatedTitle, setUpdatedTitle] = useState('');
-  const [updatedDescription, setUpdatedDescription] = useState('');
+  const [error,          setError]          = useState<string | null>(null);
+  const [success,        setSuccess]        = useState<string | null>(null);
+  const [editingId,      setEditingId]      = useState<string | null>(null);
+  const [updatedTitle,   setUpdatedTitle]   = useState('');
+  const [updatedDesc,    setUpdatedDesc]    = useState('');
   const navigate = useNavigate();
-  const { toast } = useToast();
 
-  useEffect(() => {
-    fetchTasks();
-  }, [fetchTasks]);
+  useEffect(() => { fetchTasks(); }, [fetchTasks]);
 
-  const handleDeleteTask = async (id: string) => {
+  const flash = (msg: string) => {
+    setSuccess(msg);
+    setTimeout(() => setSuccess(null), 2500);
+  };
+
+  const handleDelete = async (id: string) => {
     try {
       const token = localStorage.getItem('token');
-      if (!token) {
-        setError('No token found. Please log in.');
-        return;
-      }
-
       await api.delete(`/api/tasks/${id}`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
+        headers: { Authorization: `Bearer ${token}` },
       });
-
-      toast({
-        title: '[SUCCESS]',
-        description: 'Task deleted successfully',
-      });
+      flash('Task deleted.');
       fetchTasks();
     } catch (err: any) {
-      const errorMsg = err.response?.data?.message || 'Failed to delete task.';
-      setError(errorMsg);
-      toast({
-        variant: 'destructive',
-        title: '[ERROR]',
-        description: errorMsg,
-      });
+      setError(err.response?.data?.message || 'Failed to delete task.');
     }
   };
 
-  const handleUpdateTask = async (id: string, completed: boolean) => {
+  const handleUpdate = async (id: string, completed: boolean) => {
     try {
       const token = localStorage.getItem('token');
-      if (!token) {
-        setError('No token found. Please log in.');
-        return;
-      }
-
       await api.patch(
         `/api/tasks/${id}`,
-        { title: updatedTitle, description: updatedDescription, completed },
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
+        { title: updatedTitle, description: updatedDesc, completed },
+        { headers: { Authorization: `Bearer ${token}` } }
       );
-
-      setEditingTaskId(null);
-      toast({
-        title: '[SUCCESS]',
-        description: 'Task updated successfully',
-      });
+      setEditingId(null);
+      flash('Task updated.');
       fetchTasks();
     } catch (err: any) {
-      const errorMsg = err.response?.data?.message || 'Failed to update task.';
-      setError(errorMsg);
-      toast({
-        variant: 'destructive',
-        title: '[ERROR]',
-        description: errorMsg,
-      });
+      setError(err.response?.data?.message || 'Failed to update task.');
     }
   };
 
-  const handleToggleComplete = async (task: Task) => {
+  const handleToggle = async (task: Task) => {
     try {
       const token = localStorage.getItem('token');
-      if (!token) {
-        setError('No token found. Please log in.');
-        return;
-      }
-
       await api.patch(
         `/api/tasks/${task.id}`,
         { ...task, completed: !task.completed },
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
+        { headers: { Authorization: `Bearer ${token}` } }
       );
-
       fetchTasks();
     } catch (err: any) {
-      const errorMsg = err.response?.data?.message || 'Failed to update task.';
-      setError(errorMsg);
-      toast({
-        variant: 'destructive',
-        title: '[ERROR]',
-        description: errorMsg,
-      });
+      setError(err.response?.data?.message || 'Failed to update task.');
     }
   };
 
   const startEditing = (task: Task) => {
-    setEditingTaskId(task.id);
+    setEditingId(task.id);
     setUpdatedTitle(task.title);
-    setUpdatedDescription(task.description);
+    setUpdatedDesc(task.description);
   };
 
   const cancelEditing = () => {
-    setEditingTaskId(null);
+    setEditingId(null);
     setUpdatedTitle('');
-    setUpdatedDescription('');
+    setUpdatedDesc('');
   };
 
+  const total     = tasks.length;
+  const completed = tasks.filter(t => t.completed).length;
+
   return (
-    <div className="container mx-auto p-4 max-w-4xl">
-      <div className="mb-6 border-2 border-white p-4">
-        <pre className="text-primary text-xs leading-tight">
-{`╔════════════════════════════════════╗
-║    TASK MANAGEMENT PROTOCOL        ║
-╚════════════════════════════════════╝`}
+    <div>
+      {/* Page header */}
+      <div style={{ marginBottom: '1lh' }}>
+        <pre className="tk-accent" style={{ fontSize: '0.7rem', lineHeight: 1.2 }}>
+{`╔══════════════════════════════════╗
+║   TASK MANAGEMENT PROTOCOL       ║
+╚══════════════════════════════════╝`}
         </pre>
-        <p className="text-muted-foreground text-xs mt-2">
-          &gt; TOTAL TASKS: {tasks.length} | COMPLETED: {tasks.filter(t => t.completed).length}
+        <p className="tk-dim">
+          &gt; TOTAL: {total} &nbsp;|&nbsp; COMPLETED: {completed} &nbsp;|&nbsp; PENDING: {total - completed}
         </p>
       </div>
 
       {error && (
-        <div className="border border-destructive p-3 mb-6">
-          <p className="text-destructive text-xs">[ERROR] {error}</p>
+        <div className="tk-banner error" style={{ marginBottom: '1lh' }}>
+          [ERROR] {error}&nbsp;
+          <button
+            size-="small"
+            variant-="danger"
+            onClick={() => setError(null)}
+          >
+            [X]
+          </button>
+        </div>
+      )}
+
+      {success && (
+        <div className="tk-banner info" style={{ marginBottom: '1lh' }}>
+          [OK] {success}
         </div>
       )}
 
       {tasks.length === 0 ? (
-        <div className="border-2 border-white p-12 text-center">
-          <p className="text-muted-foreground text-sm mb-2">[NO TASKS FOUND]</p>
-          <p className="text-xs text-muted-foreground mb-6">
+        <div box-="square" className="tk-empty">
+          <p>[NO TASKS FOUND]</p>
+          <p className="tk-dim" style={{ marginTop: '0.5lh', marginBottom: '1lh' }}>
             USE CHAT INTERFACE TO CREATE NEW TASKS
           </p>
-          <Button 
+          <button
+            size-="small"
+            variant-="accent"
             onClick={() => navigate('/chat')}
-            className="bg-primary text-black hover:bg-primary/80 border-2 border-primary rounded-none font-bold"
           >
             [ GO TO CHAT ]
-          </Button>
+          </button>
         </div>
       ) : (
-        <div className="space-y-4">
+        <div className="tk-task-list">
           {tasks.map((task, index) => (
-            <div key={task.id} className="border-2 border-white bg-black">
-              <div className="border-b border-white p-3 flex items-center justify-between">
-                <p className="text-primary text-xs font-bold">
+            <div key={task.id} box-="square">
+
+              {/* Task header row */}
+              <div className="tk-task-header">
+                <span className="tk-accent tk-bold">
                   TASK #{String(index + 1).padStart(3, '0')}
-                </p>
-                <p className={`text-xs ${task.completed ? 'text-primary' : 'text-accent'}`}>
-                  [STATUS: {task.completed ? 'COMPLETED' : 'ACTIVE'}]
-                </p>
+                </span>
+                <span is-="badge" variant-={task.completed ? 'accent' : 'foreground2'}>
+                  {task.completed ? 'COMPLETED' : 'ACTIVE'}
+                </span>
               </div>
 
-              {editingTaskId === task.id ? (
-                <div className="p-4 space-y-4">
-                  <div>
-                    <p className="text-white text-xs mb-2">&gt; TITLE:</p>
-                    <Input
+              {editingId === task.id ? (
+                /* ── Edit mode ── */
+                <div className="tk-task-body tk-form-stack">
+                  <div className="tk-form-group">
+                    <label className="tk-form-label">&gt; TITLE:</label>
+                    <input
                       type="text"
                       value={updatedTitle}
-                      onChange={(e) => setUpdatedTitle(e.target.value)}
-                      className="bg-black text-white border-white rounded-none"
+                      onChange={e => setUpdatedTitle(e.target.value)}
+                      className="tk-full"
                     />
                   </div>
-                  <div>
-                    <p className="text-white text-xs mb-2">&gt; DESCRIPTION:</p>
-                    <Textarea
-                      value={updatedDescription}
-                      onChange={(e) => setUpdatedDescription(e.target.value)}
+                  <div className="tk-form-group">
+                    <label className="tk-form-label">&gt; DESCRIPTION:</label>
+                    <textarea
+                      value={updatedDesc}
+                      onChange={e => setUpdatedDesc(e.target.value)}
                       rows={3}
-                      className="bg-black text-white border-white rounded-none"
+                      className="tk-full"
                     />
                   </div>
-                  <div className="flex gap-2">
-                    <Button
-                      onClick={() => handleUpdateTask(task.id, task.completed)}
-                      className="bg-primary text-black hover:bg-primary/80 border-2 border-primary rounded-none font-bold"
+                  <div className="tk-row">
+                    <button
+                      size-="small"
+                      variant-="accent"
+                      onClick={() => handleUpdate(task.id, task.completed)}
                     >
-                      [ SAVE ]
-                    </Button>
-                    <Button
+                      [SAVE]
+                    </button>
+                    <button
+                      size-="small"
+                      variant-="foreground2"
                       onClick={cancelEditing}
-                      className="border-2 border-white text-white hover:bg-white hover:text-black rounded-none"
                     >
-                      [ CANCEL ]
-                    </Button>
+                      [CANCEL]
+                    </button>
                   </div>
                 </div>
               ) : (
-                <div className="p-4">
-                  <div className="flex items-start gap-3 mb-4">
-                    <Checkbox
-                      checked={task.completed}
-                      onCheckedChange={() => handleToggleComplete(task)}
-                      className="mt-1 border-white data-[state=checked]:bg-primary data-[state=checked]:border-primary rounded-none"
-                    />
-                    <div className="flex-1">
-                      <h3 className={`text-white font-bold mb-2 ${task.completed ? 'line-through' : ''}`}>
-                        &gt; {task.title}
-                      </h3>
-                      <p className="text-muted-foreground text-sm">
-                        {task.description}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex gap-2 border-t border-white pt-3">
-                    <Button
-                      onClick={() => startEditing(task)}
-                      className="border border-white text-white hover:bg-white hover:text-black rounded-none text-xs"
-                      size="sm"
-                    >
-                      [ EDIT ]
-                    </Button>
-                    <Button
-                      onClick={() => handleDeleteTask(task.id)}
-                      className="border border-destructive text-destructive hover:bg-destructive hover:text-white rounded-none text-xs"
-                      size="sm"
-                    >
-                      [ DELETE ]
-                    </Button>
+                /* ── View mode ── */
+                <div className="tk-task-body">
+                  <div className="tk-task-check-row">
+                    <label>
+                      <input
+                        type="checkbox"
+                        checked={task.completed}
+                        onChange={() => handleToggle(task)}
+                      />
+                      <div>
+                        <p className={`tk-bold ${task.completed ? 'tk-dim tk-strike' : ''}`}>
+                          &gt; {task.title}
+                        </p>
+                        {task.description && (
+                          <p className="tk-dim" style={{ marginTop: '0.3lh' }}>
+                            {task.description}
+                          </p>
+                        )}
+                      </div>
+                    </label>
                   </div>
                 </div>
               )}
+
+              {/* Action row */}
+              {editingId !== task.id && (
+                <div className="tk-task-actions">
+                  <button
+                    size-="small"
+                    variant-="foreground2"
+                    onClick={() => startEditing(task)}
+                  >
+                    [EDIT]
+                  </button>
+                  <button
+                    size-="small"
+                    variant-="danger"
+                    onClick={() => handleDelete(task.id)}
+                  >
+                    [DELETE]
+                  </button>
+                </div>
+              )}
+
             </div>
           ))}
         </div>
