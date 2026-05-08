@@ -58,8 +58,47 @@ export const processInput = async (req, res) => {
 
         console.log("Attempting to save task to database.");
         const supabase = getSupabase(req.token);
+        
+        // 1. Upload audio to storage if available
+        let audioPath = null;
+        if (audio) {
+            try {
+                const buffer = Buffer.from(audio, 'base64');
+                const fileName = `${userId}/${Date.now()}.webm`;
+                const { data: uploadData, error: uploadError } = await supabase.storage
+                    .from('audio-notes')
+                    .upload(fileName, buffer, { 
+                        contentType: 'audio/webm',
+                        upsert: true 
+                    });
+                
+                if (uploadError) throw uploadError;
+                audioPath = uploadData.path;
+                console.log("Audio uploaded successfully:", audioPath);
+            } catch (err) {
+                console.error("Error uploading audio to Supabase:", err.message);
+                // We continue even if audio upload fails, as the text is more important
+            }
+        }
+
+        // 2. Save Task
         const newTask = await saveTaskToDb(supabase, userId, title, description);
         console.log("Task saved to database:", newTask);
+
+        // 3. Save User Message to History
+        await supabase.from('messages').insert({
+            user_id: userId,
+            role: 'user',
+            content: transcription,
+            audio_path: audioPath
+        });
+
+        // 4. Save Assistant Message to History
+        await supabase.from('messages').insert({
+            user_id: userId,
+            role: 'assistant',
+            content: reply || `I have created the task: "${newTask.title}"`
+        });
 
         res.status(200).json({ reply: reply || `I have created the task: "${newTask.title}"` });
     } catch (error) {

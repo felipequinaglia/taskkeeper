@@ -26,6 +26,7 @@ import userRoutes from './routes/userRoutes.js';
 import taskRoutes from './routes/taskRoutes.js';
 import chatRoutes from './routes/chatRoutes.js'; // Import chat routes
 import processInputRoutes from './routes/processInputRoutes.js';
+import messageRoutes from './routes/messageRoutes.js';
 import { protect } from './middleware/authMiddleware.js';
 
 const app = express();
@@ -50,6 +51,7 @@ app.use('/api/users', userRoutes);
 app.use('/api/tasks', taskRoutes);
 app.use('/api/chat', chatRoutes); // Integrate chat routes
 app.use('/api/process-input', processInputRoutes);
+app.use('/api/messages', messageRoutes);
 
 
 // Basic Route
